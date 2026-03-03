@@ -1,0 +1,13 @@
+
+
+torch==2.9.0
+transformers==4.41.2
+huggingface_hub==0.23.4
+sentence-transformers==2.6.1
+langchain==0.2.5
+langchain-community==0.2.5
+streamlit
+pypdf
+python-dotenv
+chromadb
+groq
