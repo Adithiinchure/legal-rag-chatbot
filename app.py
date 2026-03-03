@@ -6,7 +6,10 @@ os.environ["TORCH_DEVICE"] = "cpu"
 
 import torch
 torch.cuda.is_available = lambda: False
-client = Groq(api_key=GROQ_API_KEY)
+import os
+from groq import Groq
+
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 import streamlit as st
 from rag_pipeline import create_vectorstore, load_vectorstore
