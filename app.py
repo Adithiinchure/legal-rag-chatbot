@@ -1,27 +1,33 @@
 import os
 
-# Disable GPU BEFORE importing torch-based modules
+# Disable GPU
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ["TORCH_DEVICE"] = "cpu"
 
 import torch
 torch.cuda.is_available = lambda: False
-import os
-from groq import Groq
-
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 import streamlit as st
-from rag_pipeline import create_vectorstore, load_vectorstore
 from groq import Groq
-from config import GROQ_API_KEY, MODEL_NAME, PERSIST_DIRECTORY
+from rag_pipeline import create_vectorstore, load_vectorstore
+from config import MODEL_NAME, PERSIST_DIRECTORY
 import shutil
 from pathlib import Path
 
 st.set_page_config(page_title="Legal RAG Assistant", layout="wide")
 
-st.title("⚖️ Doc's Advice bot")
+st.title("⚖️ Doc's Advice Bot")
 st.write("Ask legal questions from uploaded PDFs")
+
+# ---------------------- LOAD GROQ SECRET SAFELY ----------------------
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+if not GROQ_API_KEY:
+    st.error("GROQ_API_KEY not found. Please set it in Streamlit Secrets.")
+    st.stop()
+
+client = Groq(api_key=GROQ_API_KEY)
 
 # ---------------------- PDF UPLOAD SECTION ----------------------
 
@@ -42,18 +48,15 @@ if uploaded_files:
             with open(save_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
 
-        # Delete old vector DB silently
         if os.path.exists(PERSIST_DIRECTORY):
             try:
                 shutil.rmtree(PERSIST_DIRECTORY)
             except:
-                pass  # No warning shown
+                pass
 
         vectorstore = create_vectorstore()
 
 # ---------------------- LOAD VECTOR DB ----------------------
-
-client = Groq(api_key=GROQ_API_KEY)
 
 try:
     if not os.path.exists(PERSIST_DIRECTORY):
@@ -65,10 +68,7 @@ except ValueError as e:
     st.info("📄 Please upload PDF files to get started.")
     st.stop()
 
-# ---------------------- CHAT SECTION ----------------------
-
-# ---------------------- CHAT SECTION ----------------------
-# ---------------------- CHAT SECTION ----------------------
+# ---------------------- CHAT STATE ----------------------
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -83,9 +83,9 @@ with st.sidebar:
 
     if st.session_state.chat_history:
         for i in range(0, len(st.session_state.chat_history), 2):
-            question = st.session_state.chat_history[i]["content"]
+            question_text = st.session_state.chat_history[i]["content"]
 
-            if st.button(question, key=f"chat_{i}"):
+            if st.button(question_text, key=f"chat_{i}"):
                 st.session_state.selected_chat = i
 
     if st.button("🗑 Clear History"):
@@ -93,38 +93,36 @@ with st.sidebar:
         st.session_state.selected_chat = None
         st.rerun()
 
-# ---------------------- MAIN CHAT DISPLAY ----------------------
+# ---------------------- MAIN DISPLAY ----------------------
 
-# If a previous chat is selected
 if st.session_state.selected_chat is not None:
     index = st.session_state.selected_chat
 
-    question = st.session_state.chat_history[index]["content"]
-    answer = st.session_state.chat_history[index + 1]["content"]
+    question_text = st.session_state.chat_history[index]["content"]
+    answer_text = st.session_state.chat_history[index + 1]["content"]
 
     st.markdown("### ❓ Question")
-    st.markdown(question)
+    st.markdown(question_text)
 
     st.markdown("### 💬 Answer")
-    st.markdown(answer)
+    st.markdown(answer_text)
 
 else:
-    # Show latest chat only
     if len(st.session_state.chat_history) >= 2:
-        question = st.session_state.chat_history[-2]["content"]
-        answer = st.session_state.chat_history[-1]["content"]
+        question_text = st.session_state.chat_history[-2]["content"]
+        answer_text = st.session_state.chat_history[-1]["content"]
 
-        st.markdown("### Question")
-        st.markdown(question)
+        st.markdown("### ❓ Question")
+        st.markdown(question_text)
 
-        st.markdown("### 💬  Answer")
-        st.markdown(answer)
+        st.markdown("### 💬 Answer")
+        st.markdown(answer_text)
 
 # ---------------------- CHAT INPUT ----------------------
 
-if question := st.chat_input("Ask your legal question..."):
+if user_question := st.chat_input("Ask your legal question..."):
 
-    docs = vectorstore.similarity_search(question, k=6)
+    docs = vectorstore.similarity_search(user_question, k=6)
     context = "\n\n".join([doc.page_content for doc in docs])
 
     prompt = f"""
@@ -138,7 +136,7 @@ Legal Context:
 {context}
 
 Question:
-{question}
+{user_question}
 """
 
     response = client.chat.completions.create(
@@ -149,9 +147,8 @@ Question:
 
     answer = response.choices[0].message.content
 
-    # Save chat
     st.session_state.chat_history.append(
-        {"role": "user", "content": question}
+        {"role": "user", "content": user_question}
     )
     st.session_state.chat_history.append(
         {"role": "assistant", "content": answer}

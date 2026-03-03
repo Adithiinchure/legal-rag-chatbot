@@ -3,4 +3,4 @@ __pycache__/
 chroma_db/
 .env
 data/
-*.pyc
+*.pycfrom 
