@@ -7,4 +7,3 @@ sentence-transformers==2.2.2
 huggingface-hub==0.20.3
 pypdf==3.17.4
 groq==0.4.2
-torch==2.1.2
